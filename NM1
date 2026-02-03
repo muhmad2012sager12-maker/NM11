@@ -1,0 +1,162 @@
+-- [[ NM1 - ADVANCED FLING HUB ]] --
+-- Features: Toggle Button, Nearest/Random Fly, Stand up after 1 sec
+
+local Player = game.Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+if CoreGui:FindFirstChild("NM1_UI") then CoreGui["NM1_UI"]:Destroy() end
+
+-- [1] إنشاء الـ ScreenGui
+local sg = Instance.new("ScreenGui", CoreGui); sg.Name = "NM1_UI"
+
+-- [2] الزر المربع الخارجي (NM1) - نص أسود نص أزرق
+local toggleBtn = Instance.new("TextButton", sg)
+toggleBtn.Name = "ToggleButton"
+toggleBtn.Size = UDim2.new(0, 50, 0, 50)
+toggleBtn.Position = UDim2.new(0.5, -170, 0.7, 0)
+toggleBtn.Text = "NM1"
+toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 14
+toggleBtn.Active = true
+toggleBtn.Draggable = true -- تقدر تحرك الزر المربع
+Instance.new("UICorner", toggleBtn)
+
+-- تلوين الزر المربع (نص أسود نص أزرق)
+local btnGradient = Instance.new("UIGradient", toggleBtn)
+btnGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.51, Color3.fromRGB(0, 100, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 100, 255))
+})
+btnGradient.Rotation = 45
+
+-- [3] الخلفية الرئيسية (NM1)
+local mainFrame = Instance.new("Frame", sg)
+mainFrame.Size = UDim2.new(0, 220, 0, 160)
+mainFrame.Position = UDim2.new(0.5, -110, 0.7, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- خلفية سوداء
+mainFrame.Active = true; mainFrame.Draggable = true
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
+
+-- إطار أزرق للخلفية
+local frameStroke = Instance.new("UIStroke", mainFrame)
+frameStroke.Color = Color3.fromRGB(0, 100, 255)
+frameStroke.Thickness = 2
+
+-- اسم الخلفية في الأعلى
+local title = Instance.new("TextLabel", mainFrame)
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Text = "NM1"
+title.TextColor3 = Color3.fromRGB(0, 100, 255)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+
+-- [4] الأزرار (بدون إيموجي)
+local btnTarget = Instance.new("TextButton", mainFrame)
+btnTarget.Size = UDim2.new(0.9, 0, 0.25, 0)
+btnTarget.Position = UDim2.new(0.05, 0, 0.25, 0)
+btnTarget.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+btnTarget.Text = "فلينق اقرب شخص"; btnTarget.TextColor3 = Color3.new(1, 1, 1)
+btnTarget.Font = Enum.Font.GothamBold; btnTarget.TextSize = 14
+Instance.new("UICorner", btnTarget)
+
+local btnRandom = Instance.new("TextButton", mainFrame)
+btnRandom.Size = UDim2.new(0.9, 0, 0.25, 0)
+btnRandom.Position = UDim2.new(0.05, 0, 0.6, 0)
+btnRandom.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+btnRandom.Text = "فلينق عشوائي"; btnRandom.TextColor3 = Color3.new(1, 1, 1)
+btnRandom.Font = Enum.Font.GothamBold; btnRandom.TextSize = 14
+Instance.new("UICorner", btnRandom)
+
+-- [5] المنطق البرمجي
+local isFlinging = false
+local connection
+local oldPos = nil 
+
+-- وظيفة الإخفاء والإظهار
+toggleBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+end)
+
+local function stopFling()
+    isFlinging = false
+    if connection then connection:Disconnect() end
+    local char = Player.Character
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    
+    if hrp then
+        hrp.Velocity = Vector3.new(0,0,0)
+        hrp.RotVelocity = Vector3.new(0,0,0)
+        task.wait(0.05)
+        if oldPos then hrp.CFrame = oldPos end
+        Camera.CameraSubject = hum
+    end
+
+    if hum then 
+        hum.Sit = true -- يجلس
+        task.wait(1)   -- لمدة ثانية واحدة
+        hum.Sit = false -- يقوم
+    end
+    
+    btnTarget.Text = "فلينق اقرب شخص"; btnTarget.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    btnRandom.Text = "فلينق عشوائي"; btnRandom.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+end
+
+local function startFling(targetPlayer)
+    if connection then connection:Disconnect() end
+    local char = Player.Character
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if targetPlayer.Character then
+        Camera.CameraSubject = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+    end
+    
+    connection = RunService.Heartbeat:Connect(function()
+        local tHrp = targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp and tHrp and isFlinging then
+            hrp.Velocity = Vector3.new(15000, 15000, 15000)
+            hrp.RotVelocity = Vector3.new(15000, 15000, 15000)
+            hrp.CFrame = tHrp.CFrame * CFrame.new(math.random(-1,1), 0, math.random(-1,1))
+            for _, p in pairs(char:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end
+        end
+    end)
+end
+
+btnTarget.MouseButton1Click:Connect(function()
+    if isFlinging then stopFling() return end
+    local target = nil; local dist = math.huge
+    for _, v in pairs(game.Players:GetPlayers()) do
+        if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            local d = (v.Character.HumanoidRootPart.Position - Player.Character.HumanoidRootPart.Position).Magnitude
+            if d < dist then dist = d; target = v end
+        end
+    end
+    if target then
+        oldPos = Player.Character.HumanoidRootPart.CFrame
+        isFlinging = true; btnTarget.Text = "رجوع"; btnTarget.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        startFling(target)
+    end
+end)
+
+btnRandom.MouseButton1Click:Connect(function()
+    if isFlinging then stopFling() return end
+    oldPos = Player.Character.HumanoidRootPart.CFrame
+    isFlinging = true; btnRandom.Text = "رجوع"; btnRandom.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    
+    task.spawn(function()
+        while isFlinging do
+            local others = {}
+            for _, p in pairs(game.Players:GetPlayers()) do if p ~= Player and p.Character then table.insert(others, p) end end
+            if #others > 0 then
+                local randPlayer = others[math.random(1, #others)]
+                startFling(randPlayer)
+                task.wait(3)
+            else stopFling(); break end
+        end
+    end)
+end)
