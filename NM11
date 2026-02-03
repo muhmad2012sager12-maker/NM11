@@ -1,0 +1,122 @@
+-- [[ NM1 ULTIMATE: TARGETING SYSTEM ]] --
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local LP = Players.LocalPlayer
+
+if CoreGui:FindFirstChild("NM1_Target_System") then CoreGui["NM1_Target_System"]:Destroy() end
+local sg = Instance.new("ScreenGui", CoreGui); sg.Name = "NM1_Target_System"
+
+-- متغيرات الاستهداف
+local targetName = ""
+local targetStartTime = 0
+local joins, leaves = 0, 0
+local joinServerTime = os.time()
+
+-- [ عداد الوقت الشخصي ]
+local myTimeFrame = Instance.new("Frame", sg)
+myTimeFrame.Size = UDim2.new(0, 130, 0, 40); myTimeFrame.Position = UDim2.new(0.5, -65, 0.05, 0)
+myTimeFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 20); myTimeFrame.Active = true; myTimeFrame.Draggable = true
+Instance.new("UICorner", myTimeFrame)
+local timeStroke = Instance.new("UIStroke", myTimeFrame); timeStroke.Color = Color3.fromRGB(0, 120, 255); timeStroke.Thickness = 2
+
+local myTimeLabel = Instance.new("TextLabel", myTimeFrame)
+myTimeLabel.Size = UDim2.new(1, 0, 1, 0); myTimeLabel.BackgroundTransparency = 1; myTimeLabel.TextColor3 = Color3.new(1, 1, 1); myTimeLabel.Font = Enum.Font.GothamBold; myTimeLabel.TextSize = 12; myTimeLabel.Text = "وقتك: 00:00:00"
+
+-- [ القائمة الرئيسية NM1 ]
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 280, 0, 320); main.Position = UDim2.new(0.5, -140, 0.3, 0)
+main.BackgroundColor3 = Color3.fromRGB(5, 5, 10); main.Active = true; main.Draggable = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 15)
+local mainStroke = Instance.new("UIStroke", main); mainStroke.Color = Color3.fromRGB(0, 100, 255); mainStroke.Thickness = 2.5
+
+-- [ الزر المربع NM1 (نص أسود نص أزرق) ]
+local toggleBtn = Instance.new("TextButton", sg)
+toggleBtn.Size = UDim2.new(0, 55, 0, 55); toggleBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
+toggleBtn.Text = "NM1"; toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.Font = Enum.Font.GothamBold; toggleBtn.TextSize = 14; toggleBtn.Active = true; toggleBtn.Draggable = true
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 12)
+
+local btnGrad = Instance.new("UIGradient", toggleBtn)
+btnGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.51, Color3.fromRGB(0, 120, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 120, 255))
+})
+btnGrad.Rotation = 45
+toggleBtn.MouseButton1Click:Connect(function() main.Visible = not main.Visible end)
+
+-- [ الصفحات ]
+local targetPage = Instance.new("Frame", main); targetPage.Size = UDim2.new(1, 0, 0.8, 0); targetPage.BackgroundTransparency = 1
+local listPage = Instance.new("Frame", main); listPage.Size = UDim2.new(1, 0, 0.8, 0); listPage.BackgroundTransparency = 1; listPage.Visible = false
+
+-- [[ صفحة الاستهداف ]]
+local pImg = Instance.new("ImageLabel", targetPage)
+pImg.Size = UDim2.new(0, 90, 0, 90); pImg.Position = UDim2.new(0.34, 0, 0.08, 0)
+pImg.BackgroundColor3 = Color3.fromRGB(15, 15, 25); Instance.new("UICorner", pImg).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", pImg).Color = Color3.fromRGB(0, 100, 255)
+
+local info = Instance.new("TextLabel", targetPage)
+info.Size = UDim2.new(0.9, 0, 0, 120); info.Position = UDim2.new(0.05, 0, 0.45, 0); info.BackgroundTransparency = 1; info.TextColor3 = Color3.new(1, 1, 1); info.Font = Enum.Font.GothamMedium; info.TextSize = 14; info.Text = "حدد شخصاً للاستهداف..."
+
+-- [[ قائمة اللاعبين ]]
+local scroll = Instance.new("ScrollingFrame", listPage); scroll.Size = UDim2.new(0.95, 0, 0.95, 0); scroll.Position = UDim2.new(0.025, 0, 0.02, 0); scroll.BackgroundTransparency = 1; scroll.ScrollBarThickness = 2
+local uiList = Instance.new("UIListLayout", scroll); uiList.Padding = UDim.new(0, 5); uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y + 10) end)
+
+local function startTargeting(name)
+    targetName = name; targetStartTime = os.time(); joins = 1; leaves = 0
+    pImg.Image = Players:GetUserThumbnailAsync(Players[name].UserId, Enum.ThumbnailType.AvatarThumbnail, Enum.ThumbnailSize.Size150x150)
+    targetPage.Visible = true; listPage.Visible = false
+end
+
+local function refreshList()
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local f = Instance.new("Frame", scroll); f.Size = UDim2.new(0.95, 0, 0, 45); f.BackgroundColor3 = Color3.fromRGB(10, 10, 20); Instance.new("UICorner", f)
+            local img = Instance.new("ImageLabel", f); img.Size = UDim2.new(0, 35, 0, 35); img.Position = UDim2.new(0.03, 0, 0.1, 0); img.Image = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48); Instance.new("UICorner", img).CornerRadius = UDim.new(1, 0)
+            local l = Instance.new("TextLabel", f); l.Size = UDim2.new(0.5, 0, 1, 0); l.Position = UDim2.new(0.2, 0, 0, 0); l.Text = p.Name; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.TextXAlignment = Enum.TextXAlignment.Left; l.Font = Enum.Font.GothamMedium; l.TextSize = 11
+            local b = Instance.new("TextButton", f); b.Size = UDim2.new(0, 65, 0, 26); b.Position = UDim2.new(0.72, 0, 0.2, 0); b.BackgroundColor3 = Color3.fromRGB(0, 80, 180); b.Text = "استهداف"; b.TextColor3 = Color3.new(1,1,1); b.Font = Enum.Font.GothamBold; b.TextSize = 10; Instance.new("UICorner", b)
+            b.MouseButton1Click:Connect(function() startTargeting(p.Name) end)
+        end
+    end
+end
+
+-- [[ أزرار التحكم السفلي ]]
+local nav = Instance.new("Frame", main); nav.Size = UDim2.new(0.9, 0, 0, 45); nav.Position = UDim2.new(0.05, 0, 0.82, 0); nav.BackgroundTransparency = 1
+local uiNav = Instance.new("UIListLayout", nav); uiNav.FillDirection = Enum.FillDirection.Horizontal; uiNav.Padding = UDim.new(0, 10); uiNav.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local function createNavBtn(txt)
+    local b = Instance.new("TextButton", nav); b.Size = UDim2.new(0.45, 0, 0.8, 0); b.BackgroundColor3 = Color3.fromRGB(15, 15, 30); b.Text = txt; b.TextColor3 = Color3.new(1, 1, 1); b.Font = Enum.Font.GothamBold; b.TextSize = 12; Instance.new("UICorner", b); Instance.new("UIStroke", b).Color = Color3.fromRGB(0, 100, 255); return b
+end
+
+local n1 = createNavBtn("الاستهداف"); local n2 = createNavBtn("اللاعبين")
+n1.MouseButton1Click:Connect(function() targetPage.Visible = true; listPage.Visible = false end)
+n2.MouseButton1Click:Connect(function() targetPage.Visible = false; listPage.Visible = true; refreshList() end)
+
+-- [[ الأداة NM1 ]]
+local tool = Instance.new("Tool"); tool.Name = "NM1 Targeter"; tool.RequiresHandle = false; tool.Parent = LP.Backpack
+tool.Activated:Connect(function()
+    local mouse = LP:GetMouse()
+    if mouse.Target and mouse.Target.Parent:FindFirstChild("Humanoid") then
+        local p = Players:GetPlayerFromCharacter(mouse.Target.Parent)
+        if p and p ~= LP then startTargeting(p.Name) end
+    end
+end)
+
+-- [[ التحديث المستمر ]]
+spawn(function()
+    while task.wait(0.5) do
+        local myDiff = os.time() - joinServerTime
+        myTimeLabel.Text = string.format("وقتك: %02d:%02d:%02d", math.floor(myDiff/3600), math.floor((myDiff%3600)/60), myDiff%60)
+        if targetName ~= "" then
+            local p = Players:FindFirstChild(targetName)
+            local d = os.time() - targetStartTime
+            info.Text = string.format("المستهدف: %s\nالحالة: %s\nوقت الاستهداف: %02d:%02d:%02d\n\nدخل: %d | خرج: %d", targetName, (p and "متصل ✅" or "غادر ❌"), math.floor(d/3600), math.floor((d%3600)/60), d%60, joins, leaves)
+        end
+    end
+end)
